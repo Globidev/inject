@@ -1,8 +1,19 @@
-use std::{env::args, ffi::OsStr, path::{Path, PathBuf}};
+use std::{env::args, ffi::OsStr, path::{Path}};
 
 
 const ALLOWED_EXTENSIONS: [&str; 4] = ["js", "jsx", "ts", "tsx"];
 const PATTERNS: [&str; 4] = ["from \"", "from '", "import \"", "import '"];
+
+struct RootEntry<'a> {
+    file_name: String,
+    path: &'a str
+}
+
+impl RootEntry<'_> {
+    fn new(file_name: String, path: &str) -> RootEntry {
+        RootEntry { file_name, path }
+    }
+}
 
 #[allow(unused_must_use)]
 fn main() {
@@ -18,32 +29,32 @@ fn main() {
 
     let filters = &args[3..];
 
-    let root_entries = std::fs::read_dir(&args[0]).unwrap().filter_map(|d| {
+    let root_entries = std::fs::read_dir(&args[0]).unwrap().filter_map(|d| { // storing given path root entries
         if d.is_ok() {
              let dir_ok = d.ok().unwrap();
-             if !filters.contains(&dir_ok.file_name().into_string().unwrap()) { Some(dir_ok.path())  } else { None }
+             if !filters.contains(&dir_ok.file_name().into_string().unwrap()) { Some(RootEntry::new(dir_ok.file_name().into_string().unwrap(), dir_ok.path().to_str().unwrap()))  } 
+             else { None }
         } else { None }
-    }).collect::<Vec<PathBuf>>();
+    }).collect::<Vec<RootEntry>>();
 
-    for path in &root_entries {
-        read_dir_recursively(path, args[1], &root_entries);
+    for root_entry in &root_entries {
+        read_dir_recursively(root_entry.path, &args[1], &root_entries);
     }
  }
 
 #[allow(unused_must_use)]
-fn read_dir_recursively<P, T>(path: P, alias: String, root_entries: &Vec<T>) -> Result<(), std::io::Error>
+fn read_dir_recursively<P>(path: P, alias: &String, root_entries: &Vec<RootEntry>) -> Result<(), std::io::Error>
 where
-    P: AsRef<Path>,
-    T: AsRef<Path>
+    P: AsRef<Path>
 {
    let directories = std::fs::read_dir(path)?.filter_map(|d| d.ok()).collect::<Vec<_>>();
      for d in directories {
          let dir_metadata = d.metadata().unwrap();
-            if dir_metadata.is_dir() { read_dir_recursively(d.path(), alias, &root_entries); } 
+            if dir_metadata.is_dir() { read_dir_recursively(d.path(), alias, root_entries); } 
             else if dir_metadata.is_file() {
                 let file_name = d.file_name();
                 let extension = Path::new(&file_name).extension().and_then(OsStr::to_str).unwrap(); 
-                if ALLOWED_EXTENSIONS.contains(&extension) { inject(d.path(), alias, &root_entries);  }
+                if ALLOWED_EXTENSIONS.contains(&extension) { inject(d.path(), alias, root_entries);  }
             }
    }
 
@@ -51,18 +62,18 @@ where
 }
 
 #[allow(unused_must_use)]
-fn inject<P, T>(path: P, alias: String, root_entries: &Vec<T>) -> ()
+fn inject<P>(path: P, alias: &String, root_entries: &Vec<RootEntry>) -> ()
 where 
     P: AsRef<Path>,
-    T: AsRef<Path>,
 {   
     for entry in root_entries {
-        let mut content = std::fs::read_to_string(path).unwrap();
-        for (index, pattern) in PATTERNS.iter().enumerate() {
-            let matcher = vec![pattern.to_string(), entry].join(""); // TODO : expect type error
-            let destination = vec![pattern.to_string(), alias, String::from("/"), entry].join(""); // TODO : expect type error
+        let mut content = std::fs::read_to_string(&path).unwrap();
+        for pattern in PATTERNS.iter() {
+            let matcher = vec![pattern.to_string(), entry.file_name].join(""); 
+            let destination = vec![pattern.to_string(), alias.to_owned(), String::from("/"), entry.file_name].join(""); 
             content = content.replace(&matcher, &destination);
         }
-        std::fs::write(path, content);
+       
+        std::fs::write(&path, content);
     }
 }
