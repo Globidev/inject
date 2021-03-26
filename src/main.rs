@@ -25,12 +25,7 @@ $ ulimit -n 12288
 
 *********/
 
-use std::{
-    env::args,
-    ffi::{OsStr, OsString},
-    io::Result as IOResult,
-    path::Path,
-};
+use std::{env::args, ffi::OsString, io::Result as IOResult, path::Path};
 
 const ALLOWED_EXTENSIONS: [&str; 4] = ["js", "jsx", "ts", "tsx"];
 const PATTERNS: [&str; 4] = ["from \"", "from '", "import \"", "import '"];
@@ -84,21 +79,23 @@ fn read_dir_recursively<P>(path: P, alias: &str, root_entries: &[RootEntry]) -> 
 where
     P: AsRef<Path>,
 {
-    let directories = std::fs::read_dir(path)?
-        .filter_map(|d| d.ok())
-        .collect::<Vec<_>>();
-    for d in directories {
-        let dir_metadata = d.metadata().unwrap();
-        if dir_metadata.is_dir() {
-            read_dir_recursively(d.path(), alias, root_entries)?;
-        } else if dir_metadata.is_file() {
-            let file_name = d.file_name();
-            let extension = Path::new(&file_name)
-                .extension()
-                .and_then(OsStr::to_str)
-                .unwrap();
-            if ALLOWED_EXTENSIONS.contains(&extension) {
-                inject(d.path(), alias, root_entries)?;
+    let directories = std::fs::read_dir(path)?;
+
+    for dir_entry_res in directories {
+        let dir_entry = dir_entry_res?;
+        let metadata = dir_entry.metadata()?;
+        let path = dir_entry.path();
+
+        if metadata.is_dir() {
+            read_dir_recursively(path, alias, root_entries)?;
+        } else if metadata.is_file() {
+            if let Some(extension) = path.extension() {
+                let is_allowed_extension = ALLOWED_EXTENSIONS
+                    .iter()
+                    .any(|&allowed| allowed == extension);
+                if is_allowed_extension {
+                    inject(path, alias, root_entries)?;
+                }
             }
         }
     }
