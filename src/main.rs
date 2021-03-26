@@ -107,8 +107,9 @@ fn inject<P>(path: P, alias: &str, root_entries: &[RootEntry]) -> IOResult<()>
 where
     P: AsRef<Path>,
 {
+    let mut content = std::fs::read_to_string(&path)?;
+
     for entry in root_entries {
-        let mut content = std::fs::read_to_string(&path)?;
         for pattern in PATTERNS.iter() {
             let matcher = format!(
                 "{pattern}{filename}",
@@ -123,9 +124,7 @@ where
             );
             content = content.replace(&matcher, &destination);
         }
-
-        std::fs::write(&path, content)?;
     }
 
-    Ok(())
+    std::fs::write(&path, content)
 }
