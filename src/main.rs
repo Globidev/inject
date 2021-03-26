@@ -56,13 +56,9 @@ fn main() -> IOResult<()> {
     let root_entries = std::fs::read_dir(src_path)?
         .filter_map(|entry_res| match entry_res {
             Ok(entry) => {
-                let bypass_filters = !filters.contains(&entry.file_name().into_string().unwrap());
-                bypass_filters.then(|| {
-                    Ok(RootEntry::new(
-                        entry.file_name().into_string().unwrap(),
-                        entry.path(),
-                    ))
-                })
+                let file_name = entry.file_name().into_string().ok()?;
+                let bypass_filters = !filters.contains(&file_name);
+                bypass_filters.then(|| Ok(RootEntry::new(file_name, entry.path())))
             }
             Err(e) => Some(Err(e)),
         })
