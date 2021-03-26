@@ -120,12 +120,12 @@ where
         for pattern in PATTERNS.iter() {
             let matcher = format!(
                 "{pattern}{filename}",
-                pattern = pattern.to_string(),
+                pattern = pattern,
                 filename = entry.file_name
             );
             let destination = format!(
                 "{pattern}{alias}/{filename}",
-                pattern = pattern.to_string(),
+                pattern = pattern,
                 alias = alias,
                 filename = entry.file_name
             );
