@@ -28,6 +28,7 @@ $ ulimit -n 12288
 use std::{
     env::args,
     ffi::{OsStr, OsString},
+    io::Result as IOResult,
     path::Path,
 };
 
@@ -45,8 +46,7 @@ impl RootEntry {
     }
 }
 
-#[allow(unused_must_use)]
-fn main() {
+fn main() -> IOResult<()> {
     let _args = args().skip(1);
     let args_length = _args.len();
 
@@ -80,16 +80,13 @@ fn main() {
         .collect::<Vec<RootEntry>>();
 
     for root_entry in &root_entries {
-        read_dir_recursively(&root_entry.path, &args[1], &root_entries);
+        read_dir_recursively(&root_entry.path, &args[1], &root_entries)?;
     }
+
+    Ok(())
 }
 
-#[allow(unused_must_use)]
-fn read_dir_recursively<P>(
-    path: P,
-    alias: &str,
-    root_entries: &[RootEntry],
-) -> Result<(), std::io::Error>
+fn read_dir_recursively<P>(path: P, alias: &str, root_entries: &[RootEntry]) -> IOResult<()>
 where
     P: AsRef<Path>,
 {
@@ -99,7 +96,7 @@ where
     for d in directories {
         let dir_metadata = d.metadata().unwrap();
         if dir_metadata.is_dir() {
-            read_dir_recursively(d.path(), alias, root_entries);
+            read_dir_recursively(d.path(), alias, root_entries)?;
         } else if dir_metadata.is_file() {
             let file_name = d.file_name();
             let extension = Path::new(&file_name)
@@ -107,7 +104,7 @@ where
                 .and_then(OsStr::to_str)
                 .unwrap();
             if ALLOWED_EXTENSIONS.contains(&extension) {
-                inject(d.path(), alias, root_entries);
+                inject(d.path(), alias, root_entries)?;
             }
         }
     }
@@ -115,8 +112,7 @@ where
     Ok(())
 }
 
-#[allow(unused_must_use)]
-fn inject<P>(path: P, alias: &str, root_entries: &[RootEntry])
+fn inject<P>(path: P, alias: &str, root_entries: &[RootEntry]) -> IOResult<()>
 where
     P: AsRef<Path>,
 {
@@ -137,6 +133,8 @@ where
             content = content.replace(&matcher, &destination);
         }
 
-        std::fs::write(&path, content);
+        std::fs::write(&path, content)?;
     }
+
+    Ok(())
 }
